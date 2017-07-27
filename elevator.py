@@ -20,6 +20,8 @@ class ElevatorLogic(object):
         # Feel free to add any instance variables you want.
         self.destination_floor = None
         self.callbacks = None
+        self.requests = set() 
+
 
     def on_called(self, floor, direction):
         """
@@ -30,7 +32,10 @@ class ElevatorLogic(object):
         floor: the floor that the elevator is being called to
         direction: the direction the caller wants to go, up or down
         """
-        self.destination_floor = floor
+        if self.destination_floor is None:
+            self.destination_floor = floor
+
+        self.requests.add((floor,direction))
 
     def on_floor_selected(self, floor):
         """
@@ -40,14 +45,27 @@ class ElevatorLogic(object):
 
         floor: the floor that was requested
         """
-        self.destination_floor = floor
+        if self.callbacks.motor_direction == UP and floor > self.callbacks.current_floor:
+            self.requests.add((floor,None))
+        
+        if self.callbacks.motor_direction == DOWN and floor < self.callbacks.current_floor:
+            self.requests.add((floor,None))
+        
+        if not self.destination_floor:
+            self.destination_floor = floor
 
     def on_floor_changed(self):
         """
         This lets you know that the elevator has moved one floor up or down.
         You should decide whether or not you want to stop the elevator.
         """
-        if self.destination_floor == self.callbacks.current_floor:
+        stop = (self.callbacks.current_floor,self.callbacks.motor_direction)
+        stopNone = (self.callbacks.current_floor,None)
+        if stop in self.requests:
+            self.requests.remove(stop)
+            self.callbacks.motor_direction = None
+        elif stopNone in self.requests:
+            self.requests.remove(stopNone)
             self.callbacks.motor_direction = None
 
     def on_ready(self):
@@ -56,6 +74,7 @@ class ElevatorLogic(object):
         Maybe passengers have embarked and disembarked. The doors are closed,
         time to actually move, if necessary.
         """
+        
         if self.destination_floor > self.callbacks.current_floor:
             self.callbacks.motor_direction = UP
         elif self.destination_floor < self.callbacks.current_floor:
